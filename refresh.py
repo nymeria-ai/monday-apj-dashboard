@@ -95,8 +95,9 @@ APJ_COUNTRIES = {
     "2798": "Tuvalu",
     "2548": "Vanuatu",
     "2704": "Vietnam",
+    "2344": "Hong Kong",
+    "2446": "Macau",
 }
-# Explicitly excluded: Hong Kong (2344), Macau (2446)
 
 # Pacific Islands → grouped into one geo
 PACIFIC_ISLANDS = {
