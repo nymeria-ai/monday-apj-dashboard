@@ -358,7 +358,7 @@ def git_commit_push():
     """Commit and push changes."""
     import subprocess as sp
     today = datetime.now().strftime("%Y-%m-%d")
-    sp.run(["git", "add", "apj-dashboard.html"], cwd=SCRIPT_DIR, check=True)
+    sp.run(["git", "add", "index.html"], cwd=SCRIPT_DIR, check=True)
     result = sp.run(["git", "diff", "--cached", "--quiet"], cwd=SCRIPT_DIR)
     if result.returncode == 0:
         print("No changes to commit")
