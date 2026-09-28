@@ -19,6 +19,7 @@ and updates the DATA constants in apj-dashboard.html.
 ╚══════════════════════════════════════════════════════════════════╝
 """
 import json
+import os
 import subprocess
 import sys
 import re
@@ -41,6 +42,14 @@ ACCOUNTS = {
 }
 
 START_DATE = "2026-06-01"
+
+# Geo noise threshold: geos whose total spend over the window is below this are
+# left out of the dashboard JSON (their spend still counts in the rollups).
+# Override per run with env vars, e.g. MIN_GEO_SPEND_BRAND=100.
+MIN_GEO_SPEND = {
+    "brand": float(os.environ.get("MIN_GEO_SPEND_BRAND", "50")),
+    "nonbrand": float(os.environ.get("MIN_GEO_SPEND_NONBRAND", "0")),
+}
 
 # Conversion actions — LOCKED (same as WoW dashboard)
 CONV_ACTIONS = {
@@ -318,8 +327,15 @@ def format_data_for_html(data: dict) -> tuple[str, str]:
     results = {}
     for brand_key in ("brand", "nonbrand"):
         output = {}
+        threshold = MIN_GEO_SPEND[brand_key]
+        aggregates = {"All APJ"}
+        hidden = []
         for geo_name in sorted(data[brand_key].keys()):
             weeks_data = data[brand_key][geo_name]
+            geo_spend = sum(w["spend"] for w in weeks_data.values())
+            if geo_name not in aggregates and geo_spend < threshold and threshold > 0:
+                hidden.append(f"{geo_name} (${geo_spend:,.2f})")
+                continue
             rows = []
             for week in sorted_weeks:
                 d = weeks_data.get(week, {"spend": 0, "imp": 0, "clicks": 0, "signups": 0, "payers": 0, "vbb_value": 0, "agents_created": 0})
@@ -334,6 +350,8 @@ def format_data_for_html(data: dict) -> tuple[str, str]:
                     "week": week,
                 })
             output[geo_name] = rows
+        if hidden:
+            print(f"  {brand_key.upper()}: hidden below ${threshold:,.0f} threshold: {', '.join(hidden)}")
         results[brand_key] = json.dumps(output, separators=(",", ":"))
 
     return results["brand"], results["nonbrand"]
@@ -381,15 +399,19 @@ def main():
         geo_data = data[brand_key]
         # Count from what we actually list: geos with spend, excluding the All APJ rollup.
         spend_by_geo = {name: sum(w["spend"] for w in weeks.values()) for name, weeks in geo_data.items()}
-        listed = [n for n in sorted(spend_by_geo) if n != "All APJ" and spend_by_geo[n] > 0]
+        thr = MIN_GEO_SPEND[brand_key]
+        listed = [n for n in sorted(spend_by_geo) if n != "All APJ" and spend_by_geo[n] > 0 and spend_by_geo[n] >= thr]
         zero = [n for n in sorted(spend_by_geo) if n != "All APJ" and spend_by_geo[n] <= 0]
+        noise = [f"{n} (${spend_by_geo[n]:,.2f})" for n in sorted(spend_by_geo) if n != "All APJ" and 0 < spend_by_geo[n] < thr]
         print(f"\n📊 {brand_key.upper()}: {len(listed)} geos with spend" + (" (+ All APJ total)" if "All APJ" in geo_data else ""))
         if "All APJ" in geo_data:
             print(f"  All APJ: {len(geo_data['All APJ'])} weeks, ${spend_by_geo['All APJ']:,.0f} total spend")
         for name in listed:
             print(f"  {name}: {len(geo_data[name])} weeks, ${spend_by_geo[name]:,.0f} total spend")
         if zero:
-            print(f"  Zero spend (kept in dashboard, not listed): {', '.join(zero)}")
+            print(f"  Zero spend (not listed): {', '.join(zero)}")
+        if noise:
+            print(f"  Below ${thr:,.0f} noise threshold (hidden from dashboard, still in All APJ): {', '.join(noise)}")
 
     brand_json, nonbrand_json = format_data_for_html(data)
     update_html(brand_json, nonbrand_json)
