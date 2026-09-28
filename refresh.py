@@ -379,12 +379,17 @@ def main():
 
     for brand_key in ("brand", "nonbrand"):
         geo_data = data[brand_key]
-        print(f"\n📊 {brand_key.upper()}: {len(geo_data)} geos")
-        for name in sorted(geo_data.keys()):
-            weeks = geo_data[name]
-            total_spend = sum(w["spend"] for w in weeks.values())
-            if total_spend > 0:
-                print(f"  {name}: {len(weeks)} weeks, ${total_spend:,.0f} total spend")
+        # Count from what we actually list: geos with spend, excluding the All APJ rollup.
+        spend_by_geo = {name: sum(w["spend"] for w in weeks.values()) for name, weeks in geo_data.items()}
+        listed = [n for n in sorted(spend_by_geo) if n != "All APJ" and spend_by_geo[n] > 0]
+        zero = [n for n in sorted(spend_by_geo) if n != "All APJ" and spend_by_geo[n] <= 0]
+        print(f"\n📊 {brand_key.upper()}: {len(listed)} geos with spend" + (" (+ All APJ total)" if "All APJ" in geo_data else ""))
+        if "All APJ" in geo_data:
+            print(f"  All APJ: {len(geo_data['All APJ'])} weeks, ${spend_by_geo['All APJ']:,.0f} total spend")
+        for name in listed:
+            print(f"  {name}: {len(geo_data[name])} weeks, ${spend_by_geo[name]:,.0f} total spend")
+        if zero:
+            print(f"  Zero spend (kept in dashboard, not listed): {', '.join(zero)}")
 
     brand_json, nonbrand_json = format_data_for_html(data)
     update_html(brand_json, nonbrand_json)
