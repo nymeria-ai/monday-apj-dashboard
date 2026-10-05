@@ -45,10 +45,12 @@ START_DATE = "2026-06-01"
 
 # Geo noise threshold: geos whose total spend over the window is below this are
 # left out of the dashboard JSON (their spend still counts in the rollups).
+# Same $50 floor for Brand and Nonbrand on purpose (Ygritte, Oct 5 2026): a sub-$50
+# geo over a multi-month window is noise in either segment.
 # Override per run with env vars, e.g. MIN_GEO_SPEND_BRAND=100.
 MIN_GEO_SPEND = {
     "brand": float(os.environ.get("MIN_GEO_SPEND_BRAND", "50")),
-    "nonbrand": float(os.environ.get("MIN_GEO_SPEND_NONBRAND", "0")),
+    "nonbrand": float(os.environ.get("MIN_GEO_SPEND_NONBRAND", "50")),
 }
 
 # Conversion actions — LOCKED (same as WoW dashboard)
